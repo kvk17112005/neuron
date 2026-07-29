@@ -1,4 +1,3 @@
-import { supabase } from './supabase';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { NextRequest } from 'next/server';
@@ -43,41 +42,4 @@ export function getUserFromRequest(request: NextRequest): JWTPayload | null {
   const token = getTokenFromRequest(request);
   if (!token) return null;
   return verifyToken(token);
-}
-
-// Supabase Auth helpers
-export async function createSupabaseUser(email: string, password: string, metadata: any) {
-  if (!supabase) {
-    throw new Error('Supabase client not configured');
-  }
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: metadata
-    }
-  });
-  return { data, error };
-}
-
-export async function signInSupabaseUser(email: string, password: string) {
-  if (!supabase) {
-    throw new Error('Supabase client not configured');
-  }
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-  return { data, error };
-}
-
-export async function getSupabaseUser(token: string) {
-  if (!supabase) {
-    throw new Error('Supabase client not configured');
-  }
-
-  const { data, error } = await supabase.auth.getUser(token);
-  return { data, error };
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 
 const sampleUsers = [
@@ -79,57 +79,16 @@ const sampleUsers = [
 
 export async function POST() {
   try {
-    if (!supabaseAdmin) {
-      return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
-    }
-
     const results = [];
     for (const userData of sampleUsers) {
-      // Check if user exists
-      const { data: existingUser } = await supabaseAdmin
-        .from('users')
-        .select('id')
-        .eq('email', userData.email)
-        .single();
+      const existingRows = await sql`SELECT id FROM users WHERE email = ${userData.email} LIMIT 1`;
+      const existingUser = existingRows[0];
 
       if (!existingUser) {
         const hashedPassword = await hashPassword(userData.password);
-
-        // Create auth user
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: userData.email,
-          password: userData.password,
-          email_confirm: true,
-          user_metadata: {
-            name: userData.name,
-            bio: userData.bio,
-            skills_known: userData.skills_known,
-            skills_wanted: userData.skills_wanted,
-            skill_level: userData.skill_level
-          }
-        });
-
-        if (authError) {
-          results.push({ name: userData.name, status: 'auth error', error: authError.message });
-          continue;
-        }
-
-        // Create user profile
-        const { data: userDataResult, error: dbError } = await supabaseAdmin
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            ...userData,
-            password: hashedPassword,
-          })
-          .select()
-          .single();
-
-        if (dbError) {
-          results.push({ name: userData.name, status: 'db error', error: dbError.message });
-        } else {
-          results.push({ name: userData.name, status: 'created' });
-        }
+        await sql`INSERT INTO users (name,email,password,bio,skills_known,skills_wanted,skill_level,xp,streak,badges)
+          VALUES (${userData.name},${userData.email},${hashedPassword},${userData.bio},${userData.skills_known},${userData.skills_wanted},${userData.skill_level},${userData.xp},${userData.streak},${userData.badges})`;
+        results.push({ name: userData.name, status: 'created' });
       } else {
         results.push({ name: userData.name, status: 'already exists' });
       }

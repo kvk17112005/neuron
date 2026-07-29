@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 import { askMentor, ExplanationStyle } from '@/lib/gemini';
 
@@ -19,24 +19,10 @@ export async function POST(request: NextRequest) {
 
     const response = await askMentor(question, subject, topic, (style || 'simple') as ExplanationStyle);
 
-    // Save chat history to Supabase (optional)
-    if (supabaseAdmin) {
-      const { error } = await supabaseAdmin
-        .from('chat_history')
-        .insert({
-          user_id: payload.userId,
-          subject,
-          topic,
-          user_message: question,
-          ai_response: response,
-          style: style || 'simple',
-        });
-
-      if (error) {
-        console.error('Failed to save chat history:', error);
-        // Don't fail the request if saving history fails
-      }
-    }
+    try {
+      await sql`INSERT INTO chat_history (user_id,subject,topic,user_message,ai_response,style)
+        VALUES (${payload.userId},${subject},${topic},${question},${response},${style || 'simple'})`;
+    } catch (error) { console.error('Failed to save chat history:', error); }
 
     return NextResponse.json({ response });
   } catch (error) {

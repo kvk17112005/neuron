@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { sql } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -26,35 +26,20 @@ function calculateMatchScore(
 
 export async function GET(request: NextRequest) {
   try {
-    if (!supabaseAdmin) {
-      return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
-    }
-
     const payload = getUserFromRequest(request);
     if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get current user
-    const { data: currentUser, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('id', payload.userId)
-      .single();
+    const currentUser = (await sql`SELECT * FROM users WHERE id = ${payload.userId} LIMIT 1`)[0];
 
-    if (userError || !currentUser) {
+    if (!currentUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Get other users
-    const { data: otherUsers, error: usersError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .neq('id', payload.userId);
-
-    if (usersError) {
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
-    }
+    const otherUsers = await sql`SELECT * FROM users WHERE id <> ${payload.userId}`;
 
     const matches = otherUsers
       .map((other) => {
